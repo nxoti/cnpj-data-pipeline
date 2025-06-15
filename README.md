@@ -1,6 +1,6 @@
 # CNPJ Data Pipeline
 
-Um carregador modular e configurável para arquivos CNPJ da Receita Federal do Brasil. Processamento inteligente de 50+ milhões de empresas com suporte a múltiplos bancos de dados.
+Um script modular e configurável para processar arquivos CNPJ da Receita Federal do Brasil. Processamento inteligente de 50+ milhões de empresas com suporte a múltiplos bancos de dados.
 
 ## Características Principais
 
