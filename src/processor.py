@@ -444,9 +444,9 @@ class Processor:
         table_name = FILE_MAPPINGS[file_type]
 
         # We need database access here
-        from src.database import Database
+        from src.database.factory import create_database_adapter
 
-        db = Database(self.config)
+        db = create_database_adapter(self.config)
 
         try:
             # First, get a small sample to understand the structure
