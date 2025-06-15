@@ -1,0 +1,6 @@
+# Core requirements for CNPJ Data Pipeline
+requests
+beautifulsoup4  # For web scraping (replaces bs4)
+python-dotenv
+polars
+psutil

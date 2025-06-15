@@ -1,0 +1,3 @@
+# MySQL requirements (placeholder - not yet implemented)
+-r base.txt
+# mysql-connector-python  # Uncomment when MySQL support is added
