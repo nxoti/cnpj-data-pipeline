@@ -75,9 +75,12 @@ Com 50 milhões de registros, uma abordagem ingênua de carregar tudo em memóri
 ### Qualidade
 Dados governamentais têm suas peculiaridades:
 - Inconsistências de encoding
-- Chaves estrangeiras inválidas
+- Chaves estrangeiras inválidas  
 - Registros duplicados
 - Campos com espaços extras
+- **Referências incompletas**: Arquivos oficiais omitem alguns códigos usados nos dados
+
+**Solução**: Pipeline detecta e corrige automaticamente, buscando dados complementares do SERPRO quando necessário.
 
 ### Performance
 O gargalo raramente é o processamento - é a carga no banco:

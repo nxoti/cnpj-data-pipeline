@@ -121,6 +121,16 @@ DATE_COLUMNS = {
     "SOCIOCSV": ["data_entrada_sociedade"],
 }
 
+# Reference data enhancements
+REFERENCE_ENHANCEMENTS = {
+    "MOTICSV": {
+        "source": "serpro",
+        "ref_type": "motivos",
+        "code_column": "codigo"
+    },
+    # Future enhancements can be added here
+    # "MUNICCSV": {"source": "ibge", "ref_type": "municipios", "code_column": "codigo"}
+}
 
 class Processor:
     """Handles processing and transforming CSV files."""
@@ -320,6 +330,84 @@ class Processor:
             logger.error(f"Schema: {lf.schema}")
             raise
 
+    def _enhance_motivos_data(self, df: Optional[pl.DataFrame] = None, db=None, table_name: str = "motivos") -> Optional[pl.DataFrame]:
+        """
+        Enhance motivos data with missing codes from SERPRO.
+        
+        Args:
+            df: DataFrame with official motivos data (for normal processing)
+            db: Database adapter (for chunked processing)
+            table_name: Table name for database operations
+            
+        Returns:
+            Enhanced DataFrame if df was provided, None if working with database
+        """
+        try:
+            from src.reference_data import ReferenceDataManager
+            ref_manager = ReferenceDataManager(self.config)
+            
+            # Get existing codes either from dataframe or database
+            if df is not None:
+                # Normal processing - get codes from dataframe
+                existing_codes = set(df["codigo"].to_list())
+                logger.info(f"Official MOTICSV contains {len(existing_codes)} codes")
+            else:
+                # Chunked processing - get codes from database
+                if db is None:
+                    raise ValueError("Either df or db must be provided")
+                    
+                with db.cursor() as cur:
+                    cur.execute(f"SELECT codigo FROM {table_name}")
+                    existing_codes = {row[0] for row in cur.fetchall()}
+                logger.info(f"Official MOTICSV loaded {len(existing_codes)} codes to database")
+            
+            # Get only missing codes from SERPRO
+            missing_df = ref_manager.diff_motivos_data(existing_codes)
+            
+            if missing_df is not None and len(missing_df) > 0:
+                if df is not None:
+                    # Normal processing - concatenate dataframes
+                    enhanced_df = pl.concat([df, missing_df])
+                    logger.info(f"Enhanced motivos: {len(existing_codes)} official + {len(missing_df)} SERPRO = {len(enhanced_df)} total")
+                    return enhanced_df
+                else:
+                    # Chunked processing - load to database
+                    logger.info(f"Loading {len(missing_df)} missing motivos codes from SERPRO")
+                    db.bulk_upsert(missing_df, table_name)
+                    
+                    # Log final count
+                    with db.cursor() as cur:
+                        cur.execute(f"SELECT COUNT(*) FROM {table_name}")
+                        final_count = cur.fetchone()[0]
+                    logger.info(f"Total motivos codes after enhancement: {final_count}")
+            else:
+                logger.info("No additional motivos codes needed from SERPRO")
+                
+            # Return original df if no enhancement needed (or None for db mode)
+            return df
+            
+        except ImportError:
+            logger.warning("ReferenceDataManager not available, using official data only")
+            return df
+        except Exception as e:
+            logger.error(f"Failed to enhance motivos data: {e}")
+            return df  # Return original data on error
+
+    def _enhance_reference_data(self, file_type: str, df: Optional[pl.DataFrame] = None, db=None, table_name: str = None) -> Optional[pl.DataFrame]:
+        """Generic method to enhance any reference data."""
+        if file_type not in REFERENCE_ENHANCEMENTS:
+            return df
+            
+        enhancement_config = REFERENCE_ENHANCEMENTS[file_type]
+        
+        # Delegate to specific enhancement method based on source
+        if enhancement_config["source"] == "serpro":
+            return self._enhance_motivos_data(df=df, db=db, table_name=table_name)
+        # elif enhancement_config["source"] == "ibge":
+        #     return self._enhance_municipios_data(df=df, db=db, table_name=table_name)
+        
+        return df
+
     def process_file(self, file_path: Path) -> Tuple[pl.DataFrame, str]:
         """Process a single CSV file and return dataframe and table name."""
         utf8_file = None
@@ -378,6 +466,15 @@ class Processor:
 
                 # Get table name
                 table_name = FILE_MAPPINGS[file_type]
+
+                # ENHANCEMENT: Check if this file type needs reference data enhancement
+                enhanced_df = self._enhance_reference_data(
+                    file_type=file_type, 
+                    df=df,
+                    table_name=table_name
+                )
+                if enhanced_df is not None:
+                    df = enhanced_df
 
                 logger.info(f"Processed {len(df)} rows for table {table_name}")
                 return df, table_name
@@ -445,7 +542,6 @@ class Processor:
 
         # We need database access here
         from src.database.factory import create_database_adapter
-
         db = create_database_adapter(self.config)
 
         try:
@@ -526,6 +622,14 @@ class Processor:
             logger.info(
                 f"Completed chunked processing: {total_processed:,} total rows processed"
             )
+
+            # ENHANCEMENT: Check if this file type needs reference data enhancement
+            if total_processed > 0:
+                self._enhance_reference_data(
+                    file_type=file_type,
+                    db=db,
+                    table_name=table_name
+                )
 
             # Return None for dataframe since we already loaded to DB
             return None
