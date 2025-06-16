@@ -91,12 +91,25 @@ def main():
             f"Found {len(processed_files)} already processed files in {latest_dir}"
         )
 
+        # Organize files by database dependencies
+        ordered_files, categorization = downloader.organize_files_by_dependencies(files)
+        
+        logger.info(f"Processing files in dependency order:")
+        logger.info(f"  Reference tables: {len(categorization['reference_files'])} files")
+        for pattern, pattern_files in categorization['data_files'].items():
+            if pattern_files:
+                logger.info(f"  {pattern}: {len(pattern_files)} files")
+        
+        if categorization['unmatched_files']:
+            logger.warning(f"  Unmatched files: {len(categorization['unmatched_files'])} files")
+            logger.warning(f"    Files: {categorization['unmatched_files']}")
+
         # Process each file
         total_start = time.time()
         files_processed = 0
         total_rows = 0
 
-        for filename in files:
+        for filename in ordered_files:
             if filename in processed_files:
                 logger.info(f"Skipping already processed file: {latest_dir}/{filename}")
                 continue
