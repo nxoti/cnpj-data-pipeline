@@ -440,7 +440,7 @@ class Processor:
         """Process very large files in chunks, loading directly to database."""
         logger.info("Processing large file in chunks with direct database loading...")
 
-        chunk_size = 500_000  # Smaller chunks for better memory management
+        chunk_size = 1_000_000  # Smaller chunks
         table_name = FILE_MAPPINGS[file_type]
 
         # We need database access here
@@ -528,7 +528,7 @@ class Processor:
             )
 
             # Return None for dataframe since we already loaded to DB
-            return None, table_name
+            return None
 
         except Exception as e:
             logger.error(f"Error in chunked processing: {e}")
