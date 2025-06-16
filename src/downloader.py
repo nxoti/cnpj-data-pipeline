@@ -4,7 +4,7 @@ import zipfile
 import time
 from pathlib import Path
 from bs4 import BeautifulSoup
-from typing import List
+from typing import List, Dict, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,81 @@ class Downloader:
         except Exception as e:
             logger.error(f"Error getting files from {directory}: {e}")
             return []
+
+    def organize_files_by_dependencies(self, files: List[str]) -> Tuple[List[str], Dict[str, List[str]]]:
+        """
+        Organize files by their database dependencies.
+        
+        Returns:
+            Tuple of (ordered_files_list, categorization_info)
+            
+        The categorization_info dict contains details about how files were organized,
+        useful for logging and debugging.
+        """
+        # Reference tables first (no foreign keys)
+        REFERENCE_TABLES = {
+            "Cnaes.zip",
+            "Motivos.zip", 
+            "Municipios.zip",
+            "Naturezas.zip",
+            "Paises.zip",
+            "Qualificacoes.zip"
+        }
+        
+        # Files to process after references, in dependency order
+        ORDERED_PATTERNS = [
+            # 1. Empresas (depends on naturezas_juridicas)
+            "Empresas",
+            # 2. Estabelecimentos (depends on empresas, municipios, motivos)
+            "Estabelecimentos", 
+            # 3. Socios and Simples (depend on empresas)
+            "Socios",
+            "Simples"
+        ]
+
+        # Separate files into categories
+        reference_files = []
+        data_files = {pattern: [] for pattern in ORDERED_PATTERNS}
+        unmatched_files = []
+        
+        for filename in files:
+            if filename in REFERENCE_TABLES:
+                reference_files.append(filename)
+            else:
+                # Check which pattern this file matches
+                matched = False
+                for pattern in ORDERED_PATTERNS:
+                    if filename.startswith(pattern):
+                        data_files[pattern].append(filename)
+                        matched = True
+                        break
+                
+                if not matched:
+                    unmatched_files.append(filename)
+        
+        # Sort each category for consistent processing
+        reference_files.sort()
+        for pattern in ORDERED_PATTERNS:
+            data_files[pattern].sort()
+        
+        # Build final processing order
+        ordered_files = reference_files[:]  # Copy to avoid modifying original
+        for pattern in ORDERED_PATTERNS:
+            ordered_files.extend(data_files[pattern])
+        
+        # Add unmatched files at the end (edge case handling)
+        ordered_files.extend(sorted(unmatched_files))
+        
+        # Build categorization info for logging/debugging
+        categorization_info = {
+            "reference_files": reference_files,
+            "data_files": data_files,
+            "unmatched_files": unmatched_files,
+            "total_files": len(files),
+            "ordered_count": len(ordered_files)
+        }
+        
+        return ordered_files, categorization_info
 
     def download_and_extract(self, directory: str, filename: str) -> List[Path]:
         """Download and extract a file, return list of extracted CSV paths."""

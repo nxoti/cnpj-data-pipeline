@@ -91,57 +91,18 @@ def main():
             f"Found {len(processed_files)} already processed files in {latest_dir}"
         )
 
-        # Define processing order based on foreign key dependencies
-        # Reference tables first (no foreign keys)
-        REFERENCE_TABLES = {
-            "Cnaes.zip",
-            "Motivos.zip", 
-            "Municipios.zip",
-            "Naturezas.zip",
-            "Paises.zip",
-            "Qualificacoes.zip"
-        }
-        
-        # Files to process after references, in dependency order
-        ORDERED_PATTERNS = [
-            # 1. Empresas (depends on naturezas_juridicas)
-            "Empresas",
-            # 2. Estabelecimentos (depends on empresas, municipios, motivos)
-            "Estabelecimentos", 
-            # 3. Socios and Simples (depend on empresas)
-            "Socios",
-            "Simples"
-        ]
-
-        # Separate files into categories
-        reference_files = []
-        data_files = {pattern: [] for pattern in ORDERED_PATTERNS}
-        
-        for filename in files:
-            if filename in REFERENCE_TABLES:
-                reference_files.append(filename)
-            else:
-                # Check which pattern this file matches
-                for pattern in ORDERED_PATTERNS:
-                    if filename.startswith(pattern):
-                        data_files[pattern].append(filename)
-                        break
-        
-        # Sort each category
-        reference_files.sort()
-        for pattern in ORDERED_PATTERNS:
-            data_files[pattern].sort()
-        
-        # Build final processing order
-        ordered_files = reference_files
-        for pattern in ORDERED_PATTERNS:
-            ordered_files.extend(data_files[pattern])
+        # Organize files by database dependencies
+        ordered_files, categorization = downloader.organize_files_by_dependencies(files)
         
         logger.info(f"Processing files in dependency order:")
-        logger.info(f"  Reference tables: {len(reference_files)} files")
-        for pattern in ORDERED_PATTERNS:
-            if data_files[pattern]:
-                logger.info(f"  {pattern}: {len(data_files[pattern])} files")
+        logger.info(f"  Reference tables: {len(categorization['reference_files'])} files")
+        for pattern, pattern_files in categorization['data_files'].items():
+            if pattern_files:
+                logger.info(f"  {pattern}: {len(pattern_files)} files")
+        
+        if categorization['unmatched_files']:
+            logger.warning(f"  Unmatched files: {len(categorization['unmatched_files'])} files")
+            logger.warning(f"    Files: {categorization['unmatched_files']}")
 
         # Process each file
         total_start = time.time()
