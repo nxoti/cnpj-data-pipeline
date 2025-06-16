@@ -116,6 +116,24 @@ df = df.apply(lambda x: x.strip() if isinstance(x, str) else x)
 cep = cep.zfill(8)  # "1234567" → "01234567"
 ```
 
+### 5. Dados Incompletos
+
+**Problema**: Arquivos oficiais incompletos (ex: MOTICSV com 63 códigos vs 71 no SERPRO).
+
+**Solução Implementada**: Busca automática de códigos faltantes durante processamento.
+
+#### Fonte SERPRO
+- URL: https://bcadastros.serpro.gov.br/documentacao/dominios/pj/motivo_situacao_cadastral.csv
+- Cache: 30 dias
+- Códigos adicionados: 8
+
+#### Códigos Faltantes Identificados
+| Código | Descrição |
+|--------|-----------|
+| 32 | DECURSO DE PRAZO DE INTERRUPCAO TEMPORARIA |
+| 33 | REGISTRO CANCELADO |
+| ... | (6 outros códigos) |
+
 ## Validações Essenciais
 
 ### 1. Validação de CNPJ
