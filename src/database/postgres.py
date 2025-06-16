@@ -235,13 +235,15 @@ class PostgreSQLAdapter(DatabaseAdapter):
         columns_str = ", ".join([f'"{col}"' for col in columns])
 
         # Create CSV buffer
-        csv_buffer = io.StringIO()
-        df.write_csv(csv_buffer, include_header=False)
+        csv_buffer = io.BytesIO()
+        csv_content = df.write_csv(include_header=False).encode('utf-8', errors='replace')
+        csv_buffer.write(csv_content)
         csv_buffer.seek(0)
 
         with conn.cursor() as cur:
             cur.copy_expert(
-                f"COPY {table_name} ({columns_str}) FROM STDIN WITH CSV", csv_buffer
+                f"COPY {table_name} ({columns_str}) FROM STDIN WITH CSV ENCODING 'UTF8'", 
+                csv_buffer
             )
 
     def _streaming_copy_append(
@@ -273,6 +275,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
             update_clause = ", ".join(
                 [f'"{col}" = EXCLUDED."{col}"' for col in update_columns]
             )
+            update_clause += ', data_atualizacao = CURRENT_TIMESTAMP'
         else:
             update_clause = ""
 
@@ -309,7 +312,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
                 # Create temp table with same structure
                 cur.execute(f"""
                     CREATE TEMP TABLE {temp_table}
-                    (LIKE {table_name} INCLUDING DEFAULTS)
+                    (LIKE {table_name} INCLUDING DEFAULTS INCLUDING STORAGE)
                 """)  # nosec B608 - temp_table and table_name are safely generated from schema
 
                 # Load data to temp table using COPY
@@ -340,13 +343,14 @@ class PostgreSQLAdapter(DatabaseAdapter):
         columns_str = ", ".join([f'"{col}"' for col in columns])
 
         # Create CSV buffer
-        csv_buffer = io.StringIO()
-        df.write_csv(csv_buffer, include_header=False)
+        csv_buffer = io.BytesIO()
+        csv_content = df.write_csv(include_header=False).encode('utf-8', errors='replace')
+        csv_buffer.write(csv_content)
         csv_buffer.seek(0)
 
         with conn.cursor() as cur:
             cur.copy_expert(
-                f"COPY {temp_table} ({columns_str}) FROM STDIN WITH CSV",
+                f"COPY {temp_table} ({columns_str}) FROM STDIN WITH CSV ENCODING 'UTF8'",
                 csv_buffer,  # nosec B608 - temp_table and columns_str are safely generated
             )
 
@@ -367,7 +371,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
             cur.execute(f"SELECT COUNT(*) FROM {temp_table}")  # nosec B608 - temp_table is safely generated
             temp_rows = cur.fetchone()[0]
 
-        if temp_rows > 100_000:
+        if temp_rows > 1_000_000:
             logger.info(f"Large merge ({temp_rows:,} rows) - using batched approach")
             self._merge_temp_to_target_batched(
                 conn, temp_table, target_table, columns, primary_keys
@@ -389,29 +393,35 @@ class PostgreSQLAdapter(DatabaseAdapter):
         """Single transaction merge - faster for medium datasets."""
         columns_str = ", ".join([f'"{col}"' for col in columns])
         conflict_columns = ", ".join([f'"{pk}"' for pk in primary_keys])
+        pk_columns_str = ", ".join([f'"{pk}"' for pk in primary_keys])
         update_columns = [col for col in columns if col not in primary_keys]
 
         if update_columns:
             update_clause = ", ".join(
                 [f'"{col}" = EXCLUDED."{col}"' for col in update_columns]
             )
+            update_clause += ', data_atualizacao = CURRENT_TIMESTAMP'
         else:
             update_clause = ""
 
-        # Build SQL
+        # Build SQL with deduplication using DISTINCT ON
         if update_clause:
             sql = f"""
                 INSERT INTO {target_table} ({columns_str})
-                SELECT {columns_str} FROM {temp_table}
+                SELECT DISTINCT ON ({pk_columns_str}) {columns_str} 
+                FROM {temp_table}
+                ORDER BY {pk_columns_str}
                 ON CONFLICT ({conflict_columns})
                 DO UPDATE SET {update_clause}
-            """  # nosec B608 - table names and columns are from schema, not user input
+            """  # nosec B608
         else:
             sql = f"""
                 INSERT INTO {target_table} ({columns_str})
-                SELECT {columns_str} FROM {temp_table}
+                SELECT DISTINCT ON ({pk_columns_str}) {columns_str} 
+                FROM {temp_table}
+                ORDER BY {pk_columns_str}
                 ON CONFLICT ({conflict_columns}) DO NOTHING
-            """  # nosec B608 - table names and columns are from schema, not user input
+            """  # nosec B608
 
         with conn.cursor() as cur:
             cur.execute(sql)
@@ -425,62 +435,84 @@ class PostgreSQLAdapter(DatabaseAdapter):
         primary_keys: List[str],
     ):
         """Batched merge for very large datasets to reduce lock contention."""
-        batch_size = 50_000
+        batch_size = 1_000_000
         columns_str = ", ".join([f'"{col}"' for col in columns])
         conflict_columns = ", ".join([f'"{pk}"' for pk in primary_keys])
+        pk_columns_str = ", ".join([f'"{pk}"' for pk in primary_keys])
         update_columns = [col for col in columns if col not in primary_keys]
 
         if update_columns:
             update_clause = ", ".join(
                 [f'"{col}" = EXCLUDED."{col}"' for col in update_columns]
             )
+            update_clause += ', data_atualizacao = CURRENT_TIMESTAMP'
         else:
             update_clause = ""
 
         # Get total count for progress tracking
         with conn.cursor() as cur:
-            cur.execute(f"SELECT COUNT(*) FROM {temp_table}")  # nosec B608 - temp_table is safely generated
+            cur.execute(f"SELECT COUNT(*) FROM {temp_table}")  # nosec B608
             total_rows = cur.fetchone()[0]
 
-        # Process in batches
-        offset = 0
-        batch_num = 1
+        # Add row numbers for reliable batching
+        logger.info("Adding row numbers for batching...")
+        with conn.cursor() as cur:
+            cur.execute(f"ALTER TABLE {temp_table} ADD COLUMN IF NOT EXISTS batch_row_num SERIAL")  # nosec B608
 
-        while offset < total_rows:
-            logger.info(f"Processing batch {batch_num} (offset {offset:,})")
+        # Build SQL with deduplication
+        if update_clause:
+            merge_sql = f"""
+                INSERT INTO {target_table} ({columns_str})
+                SELECT {columns_str} FROM (
+                    SELECT {columns_str},
+                        ROW_NUMBER() OVER (PARTITION BY {pk_columns_str} ORDER BY batch_row_num DESC) as rn
+                    FROM {temp_table}
+                    WHERE batch_row_num BETWEEN %s AND %s
+                ) deduplicated
+                WHERE rn = 1
+                ON CONFLICT ({conflict_columns})
+                DO UPDATE SET {update_clause}
+            """  # nosec B608
+        else:
+            merge_sql = f"""
+                INSERT INTO {target_table} ({columns_str})
+                SELECT {columns_str} FROM (
+                    SELECT {columns_str},
+                        ROW_NUMBER() OVER (PARTITION BY {pk_columns_str} ORDER BY batch_row_num DESC) as rn
+                    FROM {temp_table}
+                    WHERE batch_row_num BETWEEN %s AND %s
+                ) deduplicated
+                WHERE rn = 1
+                ON CONFLICT ({conflict_columns}) DO NOTHING
+            """  # nosec B608
 
-            # Build SQL with LIMIT/OFFSET
-            if update_clause:
-                sql = f"""
-                    WITH batch AS (
-                        SELECT {columns_str} FROM {temp_table}
-                        ORDER BY {", ".join([f'"{pk}"' for pk in primary_keys])}
-                        LIMIT {batch_size} OFFSET {offset}
-                    )
-                    INSERT INTO {target_table} ({columns_str})
-                    SELECT {columns_str} FROM batch
-                    ON CONFLICT ({conflict_columns})
-                    DO UPDATE SET {update_clause}
-                """  # nosec B608 - table names and columns are from schema, not user input
-            else:
-                sql = f"""
-                    WITH batch AS (
-                        SELECT {columns_str} FROM {temp_table}
-                        ORDER BY {", ".join([f'"{pk}"' for pk in primary_keys])}
-                        LIMIT {batch_size} OFFSET {offset}
-                    )
-                    INSERT INTO {target_table} ({columns_str})
-                    SELECT {columns_str} FROM batch
-                    ON CONFLICT ({conflict_columns}) DO NOTHING
-                """  # nosec B608 - table names and columns are from schema, not user input
-
-            with conn.cursor() as cur:
-                cur.execute(sql)
-                # Commit each batch to release locks
-                conn.commit()
-
-            offset += batch_size
-            batch_num += 1
+        # Process batches
+        total_merged = 0
+        start_row = 1
+        
+        while start_row <= total_rows:
+            end_row = min(start_row + batch_size - 1, total_rows)
+            batch_num = (start_row - 1) // batch_size + 1
+            
+            logger.info(f"Processing batch {batch_num} (rows {start_row:,} to {end_row:,})")
+            
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(merge_sql, (start_row, end_row))
+                    batch_merged = cur.rowcount
+                    total_merged += batch_merged
+                    conn.commit()
+                    
+                    logger.debug(f"Batch {batch_num} merged {batch_merged:,} rows")
+                
+            except Exception as e:
+                logger.error(f"Error in batch {batch_num}: {e}")
+                conn.rollback()
+                raise
+            
+            start_row = end_row + 1
+        
+        logger.info(f"Batched merge completed: {total_merged:,} total rows processed")
 
     def _get_primary_key_columns(self, cur, table_name: str) -> List[str]:
         """Get primary key columns for a table with caching."""
