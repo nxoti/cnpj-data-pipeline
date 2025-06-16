@@ -237,6 +237,10 @@ class PostgreSQLAdapter(DatabaseAdapter):
         # Create CSV buffer
         csv_buffer = io.BytesIO()
         csv_content = df.write_csv(include_header=False).encode('utf-8', errors='replace')
+        
+        # Remove null bytes that PostgreSQL COPY can't handle
+        csv_content = csv_content.replace(b'\x00', b'')
+        
         csv_buffer.write(csv_content)
         csv_buffer.seek(0)
 
@@ -345,6 +349,10 @@ class PostgreSQLAdapter(DatabaseAdapter):
         # Create CSV buffer
         csv_buffer = io.BytesIO()
         csv_content = df.write_csv(include_header=False).encode('utf-8', errors='replace')
+        
+        # Remove null bytes that PostgreSQL COPY can't handle
+        csv_content = csv_content.replace(b'\x00', b'')
+        
         csv_buffer.write(csv_content)
         csv_buffer.seek(0)
 
