@@ -89,6 +89,71 @@ O sistema detecta automaticamente a estratégia ideal:
 | `DB_PORT` | `5432` | Porta PostgreSQL |
 | `DB_NAME` | `cnpj` | Nome do banco |
 
+## Deployment
+
+Este é um job batch que processa dados CNPJ e finaliza. A Receita Federal atualiza os dados mensalmente, então agende a execução mensal.
+
+### Execução Manual
+
+```bash
+# Executar uma vez
+docker-compose up
+
+# Ou sem Docker
+python main.py
+```
+
+### Execução Agendada (Mensal)
+
+**Linux/Mac (cron):**
+```bash
+# Executar no dia 5 de cada mês às 2h da manhã
+crontab -e
+# Adicionar:
+0 2 5 * * cd /caminho/para/cnpj-data-pipeline && docker-compose up >> /var/log/cnpj-pipeline.log 2>&1
+```
+
+**Windows (Task Scheduler):**
+- Criar tarefa agendada mensal
+- Comando: `docker-compose up`
+
+**Kubernetes:**
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cnpj-pipeline
+spec:
+  schedule: "0 2 5 * *"  # Dia 5 às 2h
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cnpj-pipeline
+            image: sua-imagem
+          restartPolicy: OnFailure
+```
+
+**GitHub Actions:**
+```yaml
+on:
+  schedule:
+    - cron: '0 2 5 * *'  # Dia 5 às 2h UTC
+```
+
+### Plataformas que Requerem Containers Ativos
+
+Algumas plataformas (PaaS) esperam que containers permaneçam em execução. Se necessário:
+
+```bash
+# Manter container ativo
+docker run -d --name cnpj sua-imagem tail -f /dev/null
+
+# Agendar execução mensal do comando:
+docker exec cnpj python main.py
+```
+
 ## Arquitetura
 
 ```
@@ -184,6 +249,39 @@ python main.py
 
 ```bash
 docker-compose --profile postgres up --build
+```
+
+## Deployment
+
+This is a batch job that processes CNPJ data and exits. Schedule it to run monthly.
+
+### Manual Execution
+
+```bash
+# Run once
+docker-compose up
+```
+
+### Scheduled Execution (Monthly)
+
+**Linux/Mac (cron):**
+```bash
+# Run on the 5th of each month at 2 AM
+0 2 5 * * cd /path/to/cnpj-pipeline && docker-compose up
+```
+
+**Other platforms:** Use your platform's scheduler (Task Scheduler, Kubernetes CronJob, GitHub Actions, etc.)
+
+### Note for PaaS Platforms
+
+If your platform requires containers to stay running:
+
+```bash
+# Keep container alive
+docker run -d --name cnpj your-image tail -f /dev/null
+
+# Schedule this command monthly:
+docker exec cnpj python main.py
 ```
 
 ## Configuration
