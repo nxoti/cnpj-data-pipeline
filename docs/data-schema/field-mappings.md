@@ -11,7 +11,7 @@ Zeros não são datas - são NULLs disfarçados:
 # Campos afetados:
 date_fields = [
     'data_situacao_cadastral',
-    'data_inicio_atividade', 
+    'data_inicio_atividade',
     'data_situacao_especial',
     'data_entrada_sociedade',
     'data_opcao_pelo_simples',
@@ -125,7 +125,7 @@ def _apply_transformations(df: pl.DataFrame, file_type: str) -> pl.DataFrame:
         for i in range(len(df.columns)):
             new_columns.append(col_mapping.get(i, f"column_{i}"))
         df = df.rename(dict(zip(df.columns, new_columns)))
-    
+
     # Converter colunas numéricas
     numeric_cols = NUMERIC_COLUMNS.get(file_type, [])
     for col in numeric_cols:
@@ -133,7 +133,7 @@ def _apply_transformations(df: pl.DataFrame, file_type: str) -> pl.DataFrame:
             df = df.with_columns(
                 pl.col(col).str.replace(",", ".").cast(pl.Float64, strict=False)
             )
-    
+
     # Limpar colunas de data
     date_cols = DATE_COLUMNS.get(file_type, [])
     for col in date_cols:
@@ -144,7 +144,7 @@ def _apply_transformations(df: pl.DataFrame, file_type: str) -> pl.DataFrame:
                 .otherwise(pl.col(col))
                 .alias(col)
             )
-    
+
     return df
 ```
 

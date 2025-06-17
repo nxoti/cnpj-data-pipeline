@@ -75,7 +75,7 @@ Com 50 milhões de registros, uma abordagem ingênua de carregar tudo em memóri
 ### Qualidade
 Dados governamentais têm suas peculiaridades:
 - Inconsistências de encoding
-- Chaves estrangeiras inválidas  
+- Chaves estrangeiras inválidas
 - Registros duplicados
 - Campos com espaços extras
 - **Referências incompletas**: Arquivos oficiais omitem alguns códigos usados nos dados

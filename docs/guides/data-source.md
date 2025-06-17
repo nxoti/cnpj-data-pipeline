@@ -55,7 +55,7 @@ def get_latest_directories(self) -> List[str]:
     """Descobre o diretório mais recente disponível."""
     response = requests.get(self.config.base_url, timeout=(...))
     soup = BeautifulSoup(response.text, "html.parser")
-    
+
     dirs = []
     for link in soup.find_all("a"):
         href = link.get("href")
@@ -64,7 +64,7 @@ def get_latest_directories(self) -> List[str]:
         if href and text.strip("/").count("-") == 1:
             dir_name = text.strip("/")
             dirs.append(dir_name)
-    
+
     return sorted(dirs, reverse=True)  # Mais recente primeiro
 ```
 
@@ -113,7 +113,7 @@ def download_and_extract(self, directory: str, filename: str) -> List[Path]:
 #     """
 #     SUGESTÃO: Download paralelo para múltiplos arquivos.
 #     Pode reduzir tempo total de download significativamente.
-#     
+#
 #     Considerações:
 #     - max_workers = 4 (respeitar servidor público)
 #     - Implementar progress tracking
@@ -147,16 +147,16 @@ with zipfile.ZipFile(zip_path, "r") as zip_ref:
 # def setup_monitoring():
 #     """
 #     SUGESTÕES de implementação:
-#     
+#
 #     1. Cron job para verificar novos dados:
 #        0 6 * * * /usr/bin/python3 /path/to/check_updates.py
-#     
+#
 #     2. Notificações via:
 #        - Email (SMTP)
 #        - Slack webhook
 #        - Discord bot
 #        - SMS (Twilio)
-#     
+#
 #     3. Integração com ferramentas de monitoramento:
 #        - Prometheus metrics
 #        - Grafana dashboards
@@ -168,7 +168,7 @@ with zipfile.ZipFile(zip_path, "r") as zip_ref:
 # def check_for_updates():
 #     latest = downloader.get_latest_directories()[0]
 #     last_processed = load_from_database()
-#     
+#
 #     if latest > last_processed:
 #         # Disparar processamento ou notificação
 #         pass

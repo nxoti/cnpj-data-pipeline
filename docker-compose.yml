@@ -1,10 +1,10 @@
 # CNPJ Data Pipeline - Development Environment
-# 
+#
 # Usage:
 #   PostgreSQL (default): docker-compose --profile postgres up
 #   MySQL (future):       docker-compose --profile mysql up
 #   BigQuery (future):    docker-compose --profile bigquery up
-#   
+#
 # Run just the pipeline with external DB: docker-compose up pipeline
 
 services:
@@ -72,7 +72,7 @@ services:
     environment:
       # Database backend selection (must match profile)
       DATABASE_BACKEND: ${DATABASE_BACKEND:-postgresql}
-      
+
       # PostgreSQL settings (when using postgres profile)
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
@@ -86,11 +86,11 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-cnpj_dev}
       MYSQL_USER: ${MYSQL_USER:-cnpj}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cnpj}
-      
+
       # BigQuery settings (when using bigquery profile)
       # BQ_PROJECT_ID: ${BQ_PROJECT_ID:-test-project}
       # BQ_DATASET: ${BQ_DATASET:-cnpj}
-      
+
       # Processing settings
       PROCESSING_STRATEGY: ${PROCESSING_STRATEGY:-auto}
       BATCH_SIZE: ${BATCH_SIZE:-50000}

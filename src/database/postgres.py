@@ -236,18 +236,20 @@ class PostgreSQLAdapter(DatabaseAdapter):
 
         # Create CSV buffer
         csv_buffer = io.BytesIO()
-        csv_content = df.write_csv(include_header=False).encode('utf-8', errors='replace')
-        
+        csv_content = df.write_csv(include_header=False).encode(
+            "utf-8", errors="replace"
+        )
+
         # Remove null bytes that PostgreSQL COPY can't handle
-        csv_content = csv_content.replace(b'\x00', b'')
-        
+        csv_content = csv_content.replace(b"\x00", b"")
+
         csv_buffer.write(csv_content)
         csv_buffer.seek(0)
 
         with conn.cursor() as cur:
             cur.copy_expert(
-                f"COPY {table_name} ({columns_str}) FROM STDIN WITH CSV ENCODING 'UTF8'", 
-                csv_buffer
+                f"COPY {table_name} ({columns_str}) FROM STDIN WITH CSV ENCODING 'UTF8'",
+                csv_buffer,
             )
 
     def _streaming_copy_append(
@@ -279,7 +281,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
             update_clause = ", ".join(
                 [f'"{col}" = EXCLUDED."{col}"' for col in update_columns]
             )
-            update_clause += ', data_atualizacao = CURRENT_TIMESTAMP'
+            update_clause += ", data_atualizacao = CURRENT_TIMESTAMP"
         else:
             update_clause = ""
 
@@ -348,11 +350,13 @@ class PostgreSQLAdapter(DatabaseAdapter):
 
         # Create CSV buffer
         csv_buffer = io.BytesIO()
-        csv_content = df.write_csv(include_header=False).encode('utf-8', errors='replace')
-        
+        csv_content = df.write_csv(include_header=False).encode(
+            "utf-8", errors="replace"
+        )
+
         # Remove null bytes that PostgreSQL COPY can't handle
-        csv_content = csv_content.replace(b'\x00', b'')
-        
+        csv_content = csv_content.replace(b"\x00", b"")
+
         csv_buffer.write(csv_content)
         csv_buffer.seek(0)
 
@@ -408,7 +412,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
             update_clause = ", ".join(
                 [f'"{col}" = EXCLUDED."{col}"' for col in update_columns]
             )
-            update_clause += ', data_atualizacao = CURRENT_TIMESTAMP'
+            update_clause += ", data_atualizacao = CURRENT_TIMESTAMP"
         else:
             update_clause = ""
 
@@ -416,7 +420,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
         if update_clause:
             sql = f"""
                 INSERT INTO {target_table} ({columns_str})
-                SELECT DISTINCT ON ({pk_columns_str}) {columns_str} 
+                SELECT DISTINCT ON ({pk_columns_str}) {columns_str}
                 FROM {temp_table}
                 ORDER BY {pk_columns_str}
                 ON CONFLICT ({conflict_columns})
@@ -425,7 +429,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
         else:
             sql = f"""
                 INSERT INTO {target_table} ({columns_str})
-                SELECT DISTINCT ON ({pk_columns_str}) {columns_str} 
+                SELECT DISTINCT ON ({pk_columns_str}) {columns_str}
                 FROM {temp_table}
                 ORDER BY {pk_columns_str}
                 ON CONFLICT ({conflict_columns}) DO NOTHING
@@ -453,7 +457,7 @@ class PostgreSQLAdapter(DatabaseAdapter):
             update_clause = ", ".join(
                 [f'"{col}" = EXCLUDED."{col}"' for col in update_columns]
             )
-            update_clause += ', data_atualizacao = CURRENT_TIMESTAMP'
+            update_clause += ", data_atualizacao = CURRENT_TIMESTAMP"
         else:
             update_clause = ""
 
@@ -465,7 +469,9 @@ class PostgreSQLAdapter(DatabaseAdapter):
         # Add row numbers for reliable batching
         logger.info("Adding row numbers for batching...")
         with conn.cursor() as cur:
-            cur.execute(f"ALTER TABLE {temp_table} ADD COLUMN IF NOT EXISTS batch_row_num SERIAL")  # nosec B608
+            cur.execute(
+                f"ALTER TABLE {temp_table} ADD COLUMN IF NOT EXISTS batch_row_num SERIAL"
+            )  # nosec B608
 
         # Build SQL with deduplication
         if update_clause:
@@ -497,29 +503,31 @@ class PostgreSQLAdapter(DatabaseAdapter):
         # Process batches
         total_merged = 0
         start_row = 1
-        
+
         while start_row <= total_rows:
             end_row = min(start_row + batch_size - 1, total_rows)
             batch_num = (start_row - 1) // batch_size + 1
-            
-            logger.info(f"Processing batch {batch_num} (rows {start_row:,} to {end_row:,})")
-            
+
+            logger.info(
+                f"Processing batch {batch_num} (rows {start_row:,} to {end_row:,})"
+            )
+
             try:
                 with conn.cursor() as cur:
                     cur.execute(merge_sql, (start_row, end_row))
                     batch_merged = cur.rowcount
                     total_merged += batch_merged
                     conn.commit()
-                    
+
                     logger.debug(f"Batch {batch_num} merged {batch_merged:,} rows")
-                
+
             except Exception as e:
                 logger.error(f"Error in batch {batch_num}: {e}")
                 conn.rollback()
                 raise
-            
+
             start_row = end_row + 1
-        
+
         logger.info(f"Batched merge completed: {total_merged:,} total rows processed")
 
     def _get_primary_key_columns(self, cur, table_name: str) -> List[str]:

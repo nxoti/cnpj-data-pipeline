@@ -16,26 +16,26 @@ services:
     environment:
       # All configuration from environment/secrets
       DATABASE_BACKEND: ${DATABASE_BACKEND}
-      
+
       # PostgreSQL config
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      
+
       # OR MySQL config
       # MYSQL_HOST: ${MYSQL_HOST}
       # MYSQL_PORT: ${MYSQL_PORT}
       # MYSQL_DATABASE: ${MYSQL_DATABASE}
       # MYSQL_USER: ${MYSQL_USER}
       # MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      
+
       # OR BigQuery config
       # BQ_PROJECT_ID: ${BQ_PROJECT_ID}
       # BQ_DATASET: ${BQ_DATASET}
       # GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
-      
+
       # Processing config
       PROCESSING_STRATEGY: ${PROCESSING_STRATEGY:-auto}
       BATCH_SIZE: ${BATCH_SIZE:-100000}

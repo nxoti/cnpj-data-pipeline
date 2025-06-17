@@ -9,11 +9,11 @@ erDiagram
     EMPRESAS ||--o{ ESTABELECIMENTOS : possui
     EMPRESAS ||--o{ SOCIOS : tem
     EMPRESAS ||--o| SIMPLES : "opta por"
-    
+
     ESTABELECIMENTOS }o--|| MUNICIPIOS : "localizado em"
     ESTABELECIMENTOS }o--|| MOTIVOS : "tem status"
     ESTABELECIMENTOS }o--|| CNAES : "exerce atividade"
-    
+
     EMPRESAS }o--|| NATUREZAS_JURIDICAS : "tem tipo"
     SOCIOS }o--|| QUALIFICACOES : "tem papel"
     SOCIOS }o--|| PAISES : "originário de"
@@ -95,11 +95,11 @@ ALTER TABLE estabelecimentos
 ### Empresa Completa
 ```sql
 WITH empresa_dados AS (
-  SELECT 
+  SELECT
     e.*,
     nj.descricao AS natureza_descricao
   FROM empresas e
-  LEFT JOIN naturezas_juridicas nj 
+  LEFT JOIN naturezas_juridicas nj
     ON e.natureza_juridica = nj.codigo
   WHERE e.cnpj_basico = ?
 )
@@ -108,11 +108,11 @@ SELECT * FROM empresa_dados;
 
 ### Histórico Societário
 ```sql
-SELECT 
+SELECT
   s.*,
   q.descricao AS qualificacao_descricao
 FROM socios s
-LEFT JOIN qualificacoes_socios q 
+LEFT JOIN qualificacoes_socios q
   ON s.qualificacao_do_socio = q.codigo
 WHERE s.cnpj_basico = ?
 ORDER BY s.data_entrada_sociedade DESC;
@@ -123,15 +123,15 @@ ORDER BY s.data_entrada_sociedade DESC;
 ### Índices Fundamentais
 ```sql
 -- Busca por localização
-CREATE INDEX idx_estab_uf_mun 
+CREATE INDEX idx_estab_uf_mun
 ON estabelecimentos(uf, municipio);
 
 -- Busca por atividade
-CREATE INDEX idx_estab_cnae 
+CREATE INDEX idx_estab_cnae
 ON estabelecimentos(cnae_fiscal_principal);
 
 -- Busca por nome de sócio
-CREATE INDEX idx_socio_nome 
+CREATE INDEX idx_socio_nome
 ON socios(nome_socio);
 ```
 
@@ -139,7 +139,7 @@ ON socios(nome_socio);
 ```sql
 -- Estatísticas por município
 CREATE MATERIALIZED VIEW mv_empresas_por_municipio AS
-SELECT 
+SELECT
   m.codigo,
   m.descricao,
   e.uf,

@@ -44,9 +44,19 @@ def setup_logging(config: Config):
 
 def main():
     """Main processing function."""
+    # Initialize basic logging first (before config in case config fails)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler()],
+    )
+    logger = logging.getLogger(__name__)
+
     try:
-        # Initialize configuration and logging
+        # Initialize configuration
         config = Config()
+
+        # Setup enhanced logging with config
         logger = setup_logging(config)
 
         logger.info("=" * 60)
@@ -93,15 +103,19 @@ def main():
 
         # Organize files by database dependencies
         ordered_files, categorization = downloader.organize_files_by_dependencies(files)
-        
-        logger.info(f"Processing files in dependency order:")
-        logger.info(f"  Reference tables: {len(categorization['reference_files'])} files")
-        for pattern, pattern_files in categorization['data_files'].items():
+
+        logger.info("Processing files in dependency order:")
+        logger.info(
+            f"  Reference tables: {len(categorization['reference_files'])} files"
+        )
+        for pattern, pattern_files in categorization["data_files"].items():
             if pattern_files:
                 logger.info(f"  {pattern}: {len(pattern_files)} files")
-        
-        if categorization['unmatched_files']:
-            logger.warning(f"  Unmatched files: {len(categorization['unmatched_files'])} files")
+
+        if categorization["unmatched_files"]:
+            logger.warning(
+                f"  Unmatched files: {len(categorization['unmatched_files'])} files"
+            )
             logger.warning(f"    Files: {categorization['unmatched_files']}")
 
         # Process each file

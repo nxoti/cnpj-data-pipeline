@@ -5,6 +5,12 @@ import psutil
 from enum import Enum
 
 
+def _get_int_env(key: str, default: str) -> int:
+    """Get integer from environment variable, handling empty strings."""
+    value = os.getenv(key, default)
+    return int(default if value == "" else value)
+
+
 class DatabaseBackend(Enum):
     POSTGRESQL = "postgresql"
     MYSQL = "mysql"
@@ -31,9 +37,7 @@ class Config:
         "https://arquivos.receitafederal.gov.br/dados/cnpj/dados_abertos_cnpj"
     )
     temp_dir: str = field(default_factory=lambda: os.getenv("TEMP_DIR", "./temp"))
-    batch_size: int = field(
-        default_factory=lambda: int(os.getenv("BATCH_SIZE", "50000"))
-    )
+    batch_size: int = field(default_factory=lambda: _get_int_env("BATCH_SIZE", "50000"))
 
     # Database configuration
     database_backend: DatabaseBackend = field(
@@ -49,12 +53,12 @@ class Config:
         )
     )
     max_memory_percent: float = field(
-        default_factory=lambda: float(os.getenv("MAX_MEMORY_PERCENT", "80"))
+        default_factory=lambda: float(os.getenv("MAX_MEMORY_PERCENT", "80") or "80")
     )
 
     # PostgreSQL settings
     db_host: str = field(default_factory=lambda: os.getenv("DB_HOST", "localhost"))
-    db_port: int = field(default_factory=lambda: int(os.getenv("DB_PORT", "5432")))
+    db_port: int = field(default_factory=lambda: _get_int_env("DB_PORT", "5432"))
     db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "cnpj"))
     db_user: str = field(default_factory=lambda: os.getenv("DB_USER", "postgres"))
     db_password: str = field(
@@ -68,9 +72,7 @@ class Config:
     mysql_host: str = field(
         default_factory=lambda: os.getenv("MYSQL_HOST", "localhost")
     )
-    mysql_port: int = field(
-        default_factory=lambda: int(os.getenv("MYSQL_PORT", "3306"))
-    )
+    mysql_port: int = field(default_factory=lambda: _get_int_env("MYSQL_PORT", "3306"))
     mysql_database: str = field(
         default_factory=lambda: os.getenv("MYSQL_DATABASE", "cnpj")
     )
@@ -86,24 +88,24 @@ class Config:
 
     # Retry configuration
     retry_attempts: int = field(
-        default_factory=lambda: int(os.getenv("RETRY_ATTEMPTS", "3"))
+        default_factory=lambda: _get_int_env("RETRY_ATTEMPTS", "3")
     )
-    retry_delay: int = field(default_factory=lambda: int(os.getenv("RETRY_DELAY", "5")))
+    retry_delay: int = field(default_factory=lambda: _get_int_env("RETRY_DELAY", "5"))
 
     # Timeout configuration
     connect_timeout: int = field(
-        default_factory=lambda: int(os.getenv("CONNECT_TIMEOUT", "30"))
+        default_factory=lambda: _get_int_env("CONNECT_TIMEOUT", "30")
     )
     read_timeout: int = field(
-        default_factory=lambda: int(os.getenv("READ_TIMEOUT", "300"))
+        default_factory=lambda: _get_int_env("READ_TIMEOUT", "300")
     )
 
     # Memory optimization
     max_file_size_mb: int = field(
-        default_factory=lambda: int(os.getenv("MAX_FILE_SIZE_MB", "500"))
+        default_factory=lambda: _get_int_env("MAX_FILE_SIZE_MB", "500")
     )
     encoding_chunk_size: int = field(
-        default_factory=lambda: int(os.getenv("ENCODING_CHUNK_SIZE", "52428800"))
+        default_factory=lambda: _get_int_env("ENCODING_CHUNK_SIZE", "52428800")
     )
 
     def __post_init__(self):

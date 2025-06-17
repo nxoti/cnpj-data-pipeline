@@ -141,7 +141,7 @@ cep = cep.zfill(8)  # "1234567" → "01234567"
 def validate_cnpj_structure(cnpj_parts):
     """Valida estrutura do CNPJ completo."""
     basico, ordem, dv = cnpj_parts
-    
+
     return (
         len(basico) == 8 and basico.isdigit() and
         len(ordem) == 4 and ordem.isdigit() and
@@ -154,14 +154,14 @@ def validate_cnpj_structure(cnpj_parts):
 def validate_references(df, reference_tables):
     """Identifica referências inválidas."""
     issues = {}
-    
+
     # CNAE principal
     invalid_cnae = df[
         ~df['cnae_fiscal_principal'].isin(reference_tables['cnaes'])
     ]
     if len(invalid_cnae) > 0:
         issues['invalid_cnae'] = invalid_cnae['cnpj_basico'].tolist()
-    
+
     return issues
 ```
 
@@ -187,13 +187,13 @@ def _apply_transformations(self, df: pl.DataFrame, file_type: str) -> pl.DataFra
     """Pipeline real de transformação implementado."""
     # 1. Renomeação de colunas
     col_mapping = COLUMN_MAPPINGS.get(file_type, {})
-    
+
     # 2. Conversão de numéricos (vírgula → ponto)
     numeric_cols = NUMERIC_COLUMNS.get(file_type, [])
-    
+
     # 3. Limpeza de datas (zeros → NULL)
     date_cols = DATE_COLUMNS.get(file_type, [])
-    
+
     return df
 ```
 
@@ -209,11 +209,11 @@ def _apply_transformations(self, df: pl.DataFrame, file_type: str) -> pl.DataFra
 #     # text_cols = ['razao_social', 'nome_fantasia']
 #     # for col in text_cols:
 #     #     df = df.with_columns(pl.col(col).str.strip().str.to_uppercase())
-#     
+#
 #     # 2. Validação de padrões (CNPJ, CEP, email)
 #     # 3. Detecção de anomalias (outliers em capital social)
 #     # 4. Enriquecimento (adicionar região a partir de UF)
-#     
+#
 #     return df
 ```
 
@@ -226,7 +226,7 @@ def _apply_transformations(self, df: pl.DataFrame, file_type: str) -> pl.DataFra
 
 ## Conclusão
 
-Qualidade de dados é um espectro, não um binário. O objetivo não é perfeição - é consistência suficiente para análises confiáveis. 
+Qualidade de dados é um espectro, não um binário. O objetivo não é perfeição - é consistência suficiente para análises confiáveis.
 
 Cada problema de qualidade conta uma história: um sistema legado migrado às pressas, uma validação que nunca existiu, um padrão que mudou mas os dados antigos permaneceram.
 

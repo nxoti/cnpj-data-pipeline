@@ -76,7 +76,7 @@ df = pl.read_csv(
 # Aplicar mapeamento de colunas (como no processador real)
 col_mapping = {
     0: "cnpj_basico", 1: "razao_social", 2: "natureza_juridica",
-    3: "qualificacao_responsavel", 4: "capital_social", 
+    3: "qualificacao_responsavel", 4: "capital_social",
     5: "porte", 6: "ente_federativo_responsavel"
 }
 new_columns = [col_mapping.get(i, f"column_{i}") for i in range(len(df.columns))]
@@ -106,7 +106,7 @@ print(df["capital_social"].describe())
 # Mas você pode testar o arquivo original:
 with open("NATJUCSV", "r", encoding="iso-8859-1") as f:
     content = f.read()
-    
+
 # Deve mostrar acentuação em ISO-8859-1
 print(content)
 ```
@@ -128,7 +128,7 @@ def validate_types(df):
     """Valida tipos após transformação."""
     # CNPJ básico sempre 8 dígitos
     assert df["cnpj_basico"].str.lengths().min() == 8
-    
+
     # Capital social numérico
     assert df["capital_social"].dtype == pl.Float64
 ```
@@ -140,7 +140,7 @@ def validate_special_values(df):
     # Datas zeradas
     date_cols = df.select(pl.col("^data_.*$"))
     assert (date_cols == "00000000").sum() > 0
-    
+
     # Campos vazios vs NULL
     assert df.null_count().sum() > 0
 ```
@@ -161,7 +161,7 @@ def validate_special_values(df):
 # def validate_sample_data():
 #     """
 #     IDEIA: Suite completa de validação para dados de exemplo.
-#     
+#
 #     Validações sugeridas:
 #     1. Estrutura (número de colunas, tipos)
 #     2. Integridade referencial entre arquivos
@@ -175,11 +175,11 @@ def validate_special_values(df):
 #     # Carregar empresas e estabelecimentos
 #     empresas = load_sample("EMPRECSV")
 #     estabelecimentos = load_sample("ESTABELECSV")
-#     
+#
 #     # Todo estabelecimento deve ter empresa
 #     cnpj_empresas = set(empresas["cnpj_basico"])
 #     cnpj_estab = set(estabelecimentos["cnpj_basico"])
-#     
+#
 #     assert cnpj_estab.issubset(cnpj_empresas), "Estabelecimento órfão encontrado"
 ```
 
@@ -189,13 +189,13 @@ def validate_special_values(df):
 # class CNPJTestPipeline:
 #     """
 #     IDEIA: Pipeline automatizado para validar processamento.
-#     
+#
 #     Etapas sugeridas:
 #     1. Ler todos os arquivos de exemplo
 #     2. Aplicar transformações
 #     3. Validar output
 #     4. Gerar relatório de qualidade
-#     
+#
 #     Útil para:
 #     - Regression testing
 #     - Validar mudanças no processador
