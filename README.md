@@ -182,20 +182,25 @@ cnpj-data-pipeline/
 
 | Arquivo | Tabela | Descrição |
 |---------|--------|-----------|
-| `CNAECSV` | `cnaes` | Atividades econômicas |
-| `EMPRECSV` | `empresas` | Dados das empresas |
-| `ESTABELE` | `estabelecimentos` | Estabelecimentos físicos |
+| `CNAECSV` | `cnaes` | Classificações de atividade econômica |
+| `EMPRECSV` | `empresas` | Registros de empresas |
+| `ESTABELECSV` | `estabelecimentos` | Dados de estabelecimentos |
+| `MOTICSV` | `motivos_situacao_cadastral` | Motivos de situação cadastral |
+| `MUNICCSV` | `municipios` | Códigos de municípios |
+| `NATJUCSV` | `naturezas_juridicas` | Naturezas jurídicas |
+| `PAISCSV` | `paises` | Códigos de países |
+| `QUALSCSV` | `qualificacoes_socios` | Qualificações de sócios |
+| `SIMPLECSV` | `dados_simples` | Dados do Simples Nacional |
 | `SOCIOCSV` | `socios` | Quadro societário |
-| `SIMPLECSV` | `dados_simples` | Regime tributário |
 
 ## Performance
 
 Tempos típicos de processamento:
 
-| Sistema | Memória | Tempo (50M empresas) |
+| Sistema | Memória | Tempo (60M+ empresas) |
 |---------|---------|---------------------|
-| VPS básico | 4GB | ~12 horas |
-| Servidor padrão | 16GB | ~3 horas |
+| VPS básico | 4GB | ~8 horas |
+| Servidor padrão | 16GB | ~2 horas |
 | Servidor high-end | 64GB+ | ~1 hora |
 
 ## Desenvolvimento
@@ -294,6 +299,6 @@ Factory pattern for database adapters, intelligent resource detection, chunked p
 
 ## Performance
 
-Processes 50M records in 1-12 hours depending on system resources.
+Processes 60M+ records in 1-12 hours depending on system resources.
 
 Made with engineering excellence for the Brazilian tech community.

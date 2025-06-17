@@ -1,18 +1,24 @@
-# CNPJ Data Pipeline - Docker Compose Configuration
-# Supports multiple database backends using profiles
+# CNPJ Data Pipeline - Development Environment
+# 
+# Usage:
+#   PostgreSQL (default): docker-compose --profile postgres up
+#   MySQL (future):       docker-compose --profile mysql up
+#   BigQuery (future):    docker-compose --profile bigquery up
+#   
+# Run just the pipeline with external DB: docker-compose up pipeline
 
 services:
-  # PostgreSQL Database (default)
+  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    profiles: ["postgres", "postgresql"]
+    profiles: ["postgres"]  # Only starts when postgres profile is active
     environment:
-      POSTGRES_DB: cnpj
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-cnpj_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./deployments/docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./init-db/postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -21,18 +27,18 @@ services:
       timeout: 5s
       retries: 5
 
-  # MySQL Database (future support)
+  # MySQL Database (placeholder - adapter not yet implemented)
   mysql:
     image: mysql:8.0
-    profiles: ["mysql"]
+    profiles: ["mysql"]  # Only starts when mysql profile is active
     environment:
-      MYSQL_ROOT_PASSWORD: mysql
-      MYSQL_DATABASE: cnpj
-      MYSQL_USER: cnpj
-      MYSQL_PASSWORD: cnpj
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cnpj_dev}
+      MYSQL_USER: ${MYSQL_USER:-cnpj}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cnpj}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./deployments/docker/init-db-mysql.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      # - ./init-db/mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro  # When available
     ports:
       - "3306:3306"
     healthcheck:
@@ -41,44 +47,56 @@ services:
       timeout: 5s
       retries: 5
 
-  # CNPJ Data Pipeline Application
-  cnpj-data-pipeline:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    profiles: ["postgres", "postgresql", "mysql"]
+  # BigQuery emulator for local development (future)
+  # bigquery-emulator:
+  #   image: ghcr.io/goccy/bigquery-emulator:latest
+  #   profiles: ["bigquery"]
+  #   ports:
+  #     - "9050:9050"
+
+  # CNPJ Data Pipeline
+  pipeline:
+    build: .
+    # Available in all profiles AND when no profile is specified
+    profiles: ["postgres", "mysql", "bigquery"]
     depends_on:
       postgres:
         condition: service_healthy
-        required: false
+        required: false  # Only required if postgres profile is active
       mysql:
         condition: service_healthy
-        required: false
+        required: false  # Only required if mysql profile is active
     volumes:
       - ./temp:/app/temp
       - ./logs:/app/logs
     environment:
-      # Default to PostgreSQL
+      # Database backend selection (must match profile)
       DATABASE_BACKEND: ${DATABASE_BACKEND:-postgresql}
-      PROCESSING_STRATEGY: ${PROCESSING_STRATEGY:-auto}
-      BATCH_SIZE: ${BATCH_SIZE:-50000}
-      MAX_MEMORY_PERCENT: ${MAX_MEMORY_PERCENT:-80}
-      DEBUG: ${DEBUG:-false}
-
-      # PostgreSQL settings
+      
+      # PostgreSQL settings (when using postgres profile)
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
-      DB_NAME: ${DB_NAME:-cnpj}
+      DB_NAME: ${DB_NAME:-cnpj_dev}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
 
-      # MySQL settings (when DATABASE_BACKEND=mysql)
+      # MySQL settings (when using mysql profile)
       MYSQL_HOST: ${MYSQL_HOST:-mysql}
       MYSQL_PORT: ${MYSQL_PORT:-3306}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-cnpj}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cnpj_dev}
       MYSQL_USER: ${MYSQL_USER:-cnpj}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cnpj}
-    restart: unless-stopped
+      
+      # BigQuery settings (when using bigquery profile)
+      # BQ_PROJECT_ID: ${BQ_PROJECT_ID:-test-project}
+      # BQ_DATASET: ${BQ_DATASET:-cnpj}
+      
+      # Processing settings
+      PROCESSING_STRATEGY: ${PROCESSING_STRATEGY:-auto}
+      BATCH_SIZE: ${BATCH_SIZE:-50000}
+      MAX_MEMORY_PERCENT: ${MAX_MEMORY_PERCENT:-80}
+      DEBUG: ${DEBUG:-true}
+    restart: "no"  # This is a batch job
 
 volumes:
   postgres_data:
