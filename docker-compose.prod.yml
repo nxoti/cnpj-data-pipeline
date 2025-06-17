@@ -3,7 +3,12 @@
 
 services:
   pipeline:
-    image: cnpj-pipeline:${VERSION:-latest}
+    # image: cnpj-pipeline:${VERSION:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - VERSION=${VERSION:-latest}
     restart: "no"  # Batch job - don't restart
     volumes:
       - pipeline_temp:/app/temp
@@ -20,30 +25,22 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       
       # OR MySQL config
-      MYSQL_HOST: ${MYSQL_HOST}
-      MYSQL_PORT: ${MYSQL_PORT}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      # MYSQL_HOST: ${MYSQL_HOST}
+      # MYSQL_PORT: ${MYSQL_PORT}
+      # MYSQL_DATABASE: ${MYSQL_DATABASE}
+      # MYSQL_USER: ${MYSQL_USER}
+      # MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       
       # OR BigQuery config
-      BQ_PROJECT_ID: ${BQ_PROJECT_ID}
-      BQ_DATASET: ${BQ_DATASET}
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
+      # BQ_PROJECT_ID: ${BQ_PROJECT_ID}
+      # BQ_DATASET: ${BQ_DATASET}
+      # GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS}
       
       # Processing config
       PROCESSING_STRATEGY: ${PROCESSING_STRATEGY:-auto}
       BATCH_SIZE: ${BATCH_SIZE:-100000}
       MAX_MEMORY_PERCENT: ${MAX_MEMORY_PERCENT:-75}
       DEBUG: ${DEBUG:-false}
-    deploy:
-      resources:
-        limits:
-          cpus: '8'
-          memory: 16G
-        reservations:
-          cpus: '4'
-          memory: 8G
 
 volumes:
   pipeline_temp:
