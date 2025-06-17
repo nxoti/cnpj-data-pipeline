@@ -26,9 +26,5 @@ ENV BATCH_SIZE=50000
 ENV MAX_MEMORY_PERCENT=80
 ENV DEBUG=false
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python validate.py || exit 1
-
 # Run the application
 ENTRYPOINT ["python", "main.py"]
