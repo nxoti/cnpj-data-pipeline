@@ -182,52 +182,84 @@ class DownloadStrategy(ABC):
         Returns:
             List of existing CSV file paths, empty if none found
         """
+        import re
+
         # Map ZIP filenames to their expected CSV patterns
         zip_to_csv_patterns = {
-            # Reference tables
+            # Reference tables (single files)
             "CNAES.ZIP": ["CNAECSV"],
             "MOTIVOS.ZIP": ["MOTICSV"],
             "MUNICIPIOS.ZIP": ["MUNICCSV"],
             "NATUREZAS.ZIP": ["NATJUCSV"],
             "PAISES.ZIP": ["PAISCSV"],
             "QUALIFICACOES.ZIP": ["QUALSCSV"],
-            # Data files (can have multiple parts)
+            "SIMPLES.ZIP": ["SIMPLESCSV"],
+            # Data files (numbered parts)
             "EMPRESAS": ["EMPRECSV"],
             "ESTABELECIMENTOS": ["ESTABELE"],
             "SOCIOS": ["SOCIOCSV"],
-            "SIMPLES": ["SIMPLESCSV"],
         }
 
         existing_files = []
         zip_upper = zip_filename.upper()
 
-        # Determine what CSV patterns this ZIP should contain
-        expected_patterns = []
-        for zip_pattern, csv_patterns in zip_to_csv_patterns.items():
-            if zip_upper.startswith(zip_pattern) or zip_upper == zip_pattern:
-                expected_patterns.extend(csv_patterns)
-                break
+        # Check if this is a numbered ZIP file (e.g., Empresas0.zip, Socios5.zip)
+        numbered_match = re.match(r"^([A-Z]+)(\d+)\.ZIP$", zip_upper)
 
-        if not expected_patterns:
-            logger.debug(f"No expected patterns found for ZIP: {zip_filename}")
-            return existing_files
+        if numbered_match:
+            # Handle numbered data files
+            base_name = numbered_match.group(1)  # "EMPRESAS"
+            part_number = numbered_match.group(2)  # "0", "1", "2", etc.
 
-        # Look for CSV files matching the expected patterns
-        for csv_file in self.temp_path.glob("*"):
-            # Skip directories and hidden files
-            if not csv_file.is_file() or csv_file.name.startswith("."):
-                continue
+            if base_name in zip_to_csv_patterns:
+                expected_patterns = zip_to_csv_patterns[base_name]
+                logger.debug(
+                    f"ZIP {zip_filename} matches numbered pattern {base_name}{part_number}, expecting CSV patterns: {expected_patterns} with Y{part_number}"
+                )
 
-            csv_name_upper = csv_file.name.upper()
+                # Look for files that match the pattern AND have the correct part number
+                for csv_file in self.temp_path.glob("*"):
+                    if not csv_file.is_file() or csv_file.name.startswith("."):
+                        continue
 
-            # Check if this CSV matches any expected pattern for this ZIP
-            for pattern in expected_patterns:
-                if csv_name_upper.endswith(pattern):
-                    existing_files.append(csv_file)
+                    csv_name_upper = csv_file.name.upper()
+
+                    for pattern in expected_patterns:
+                        if csv_name_upper.endswith(pattern):
+                            # Check if this file has the matching Y number
+                            if f"Y{part_number}" in csv_name_upper:
+                                existing_files.append(csv_file)
+                                logger.debug(
+                                    f"Found existing CSV file: {csv_file.name} (matches {pattern} with Y{part_number})"
+                                )
+                                break
+            else:
+                logger.debug(f"No pattern found for numbered ZIP base: {base_name}")
+        else:
+            # Handle single reference files
+            for zip_pattern, csv_patterns in zip_to_csv_patterns.items():
+                if zip_upper == zip_pattern:
                     logger.debug(
-                        f"Found existing CSV file: {csv_file.name} (matches {pattern})"
+                        f"ZIP {zip_filename} matches pattern {zip_pattern}, expecting CSV patterns: {csv_patterns}"
                     )
-                    break  # Found match, no need to check other patterns
+
+                    for csv_file in self.temp_path.glob("*"):
+                        if not csv_file.is_file() or csv_file.name.startswith("."):
+                            continue
+
+                        csv_name_upper = csv_file.name.upper()
+
+                        for pattern in csv_patterns:
+                            if csv_name_upper.endswith(pattern):
+                                existing_files.append(csv_file)
+                                logger.debug(
+                                    f"Found existing CSV file: {csv_file.name} (matches {pattern})"
+                                )
+                                break
+                    break
+
+        if not existing_files:
+            logger.debug(f"No existing files found for {zip_filename}")
 
         return existing_files
 
