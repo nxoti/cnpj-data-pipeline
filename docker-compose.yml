@@ -63,9 +63,9 @@ services:
       postgres:
         condition: service_healthy
         required: false  # Only required if postgres profile is active
-      mysql:
-        condition: service_healthy
-        required: false  # Only required if mysql profile is active
+      # mysql:
+      #   condition: service_healthy
+      #   required: false  # Only required if mysql profile is active
     volumes:
       - ./temp:/app/temp
       - ./logs:/app/logs
@@ -96,8 +96,11 @@ services:
       BATCH_SIZE: ${BATCH_SIZE:-50000}
       MAX_MEMORY_PERCENT: ${MAX_MEMORY_PERCENT:-80}
       DEBUG: ${DEBUG:-true}
+
+      # File management
+      KEEP_DOWNLOADED_FILES: ${KEEP_DOWNLOADED_FILES:-false}
     restart: "no"  # This is a batch job
 
 volumes:
   postgres_data:
-  mysql_data:
+  # mysql_data:

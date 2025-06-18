@@ -7,6 +7,7 @@ Um script modular e configurável para processar arquivos CNPJ da Receita Federa
 - **Arquitetura Modular**: Separação clara de responsabilidades com camada de abstração de banco de dados
 - **Multi-Banco**: PostgreSQL totalmente suportado, com placeholders para MySQL, BigQuery e SQLite
 - **Processamento Inteligente**: Adaptação automática da estratégia baseada em recursos disponíveis
+- **Downloads Paralelos**: Estratégia configurável para otimizar velocidade de download
 - **Processamento Incremental**: Rastreamento de arquivos processados para evitar duplicações
 - **Performance Otimizada**: Operações bulk eficientes com tratamento de conflitos
 - **Configuração Simples**: Setup interativo + variáveis de ambiente
@@ -52,7 +53,41 @@ docker-compose --profile postgres up --build
 
 # Com configurações customizadas
 DATABASE_BACKEND=postgresql BATCH_SIZE=100000 docker-compose --profile postgres up
+
+# Com filtros de dados
+docker-compose run --rm pipeline --filter-uf SP --filter-cnae 62
 ```
+
+## Filtragem de Dados
+
+Processe apenas os dados que você precisa com filtros via linha de comando:
+
+```bash
+# Filtrar por estado (UF)
+python main.py --filter-uf SP
+python main.py --filter-uf SP,RJ,MG
+
+# Filtrar por atividade econômica (CNAE)
+python main.py --filter-cnae 62
+python main.py --filter-cnae 62,47
+
+# Filtrar por porte da empresa
+python main.py --filter-porte 1,3  # ME e EPP
+
+# Combinar filtros
+python main.py --filter-uf SP --filter-cnae 62 --filter-porte 1
+
+# Listar filtros disponíveis
+python main.py --list-filters
+```
+
+### Filtros Disponíveis
+
+| Filtro | Descrição | Exemplo |
+|--------|-----------|---------|
+| `--filter-uf` | Estados brasileiros | `SP,RJ,MG` |
+| `--filter-cnae` | Códigos de atividade (prefixo) | `62,47` |
+| `--filter-porte` | Porte: 1=ME, 3=EPP, 5=Demais | `1,3` |
 
 ## Configuração
 
@@ -89,6 +124,14 @@ O sistema detecta automaticamente a estratégia ideal:
 | `DB_PORT` | `5432` | Porta PostgreSQL |
 | `DB_NAME` | `cnpj` | Nome do banco |
 
+### Otimização de Performance
+
+| Variável | Padrão | Descrição |
+|----------|---------|-----------|
+| `DOWNLOAD_STRATEGY` | `sequential` | `sequential` ou `parallel` |
+| `DOWNLOAD_WORKERS` | `4` | Número de downloads paralelos |
+| `KEEP_DOWNLOADED_FILES` | `false` | Manter arquivos para re-execuções |
+
 ## Deployment
 
 Este é um job batch que processa dados CNPJ e finaliza. A Receita Federal atualiza os dados mensalmente, então agende a execução mensal.
@@ -99,8 +142,17 @@ Este é um job batch que processa dados CNPJ e finaliza. A Receita Federal atual
 # Executar uma vez
 docker-compose up
 
+# Com downloads paralelos
+DOWNLOAD_STRATEGY=parallel DOWNLOAD_WORKERS=3 docker-compose up
+
+# Manter arquivos para re-execuções (economiza bandwidth)
+KEEP_DOWNLOADED_FILES=true docker-compose up
+
 # Ou sem Docker
 python main.py
+
+# Com filtros
+python main.py --filter-uf SP --filter-cnae 62
 ```
 
 ### Execução Agendada (Mensal)
@@ -162,6 +214,14 @@ cnpj-data-pipeline/
 │   ├── config.py          # Configuração com auto-detecção
 │   ├── downloader.py      # Download e extração
 │   ├── processor.py       # Parsing e transformação
+│   ├── filters/           # Sistema de filtros
+│   │   ├── base.py        # Interface de filtros
+│   │   ├── location.py    # Filtros geográficos
+│   │   ├── business.py    # Filtros de negócio
+│   │   └── registry.py    # Factory de filtros
+│   ├── download_strategies/ # Estratégias de download
+│   │   ├── sequential.py  # Download sequencial
+│   │   └── parallel.py    # Download paralelo
 │   └── database/          # Abstração de banco de dados
 │       ├── base.py        # Interface abstrata
 │       ├── factory.py     # Factory pattern
@@ -173,10 +233,11 @@ cnpj-data-pipeline/
 ## Fluxo de Processamento
 
 1. **Descoberta**: Localiza diretório mais recente de dados CNPJ
-2. **Download**: Baixa e extrai arquivos ZIP com retry automático
-3. **Processamento**: Parse dos CSVs com estratégia adaptativa
-4. **Carga**: Bulk upsert otimizado no banco de dados
-5. **Rastreamento**: Marca arquivos como processados
+2. **Download**: Baixa e extrai arquivos ZIP com retry automático (paralelo opcional)
+3. **Filtragem**: Aplica filtros selecionados para reduzir dados processados
+4. **Processamento**: Parse dos CSVs com estratégia adaptativa
+5. **Carga**: Bulk upsert otimizado no banco de dados
+6. **Rastreamento**: Marca arquivos como processados
 
 ## Tipos de Arquivo Suportados
 
@@ -230,6 +291,8 @@ A configurable, modular data pipeline for Brazilian CNPJ registry files. Smart p
 - **Modular Architecture**: Clean separation with database abstraction
 - **Multi-Database**: Full PostgreSQL support, placeholders for others
 - **Smart Processing**: Auto-adapts to available resources
+- **Advanced Filtering**: Filter by state, CNAE, and company size via CLI
+- **Parallel Downloads**: Configurable strategy for optimized download speed
 - **Incremental**: Tracks processed files
 - **Optimized**: Efficient bulk operations
 - **Easy Config**: Interactive setup + env vars
@@ -254,6 +317,33 @@ python main.py
 
 ```bash
 docker-compose --profile postgres up --build
+
+# With data filtering
+docker-compose run --rm pipeline --filter-uf SP --filter-cnae 62
+
+# With parallel downloads
+DOWNLOAD_STRATEGY=parallel DOWNLOAD_WORKERS=3 docker-compose up
+```
+
+## Data Filtering
+
+Process only the data you need using command-line filters:
+
+```bash
+# Filter by state
+python main.py --filter-uf SP,RJ
+
+# Filter by economic activity (CNAE code prefix)
+python main.py --filter-cnae 62,47
+
+# Filter by company size (1=ME, 3=EPP, 5=Others)
+python main.py --filter-porte 1,3
+
+# Combine filters
+python main.py --filter-uf SP --filter-cnae 62 --filter-porte 1
+
+# List available filters
+python main.py --list-filters
 ```
 
 ## Deployment
@@ -291,7 +381,14 @@ docker exec cnpj python main.py
 
 ## Configuration
 
-Set `DATABASE_BACKEND` and `PROCESSING_STRATEGY` in `.env` file.
+Set `DATABASE_BACKEND`, `PROCESSING_STRATEGY`, and optimization options in `.env` file:
+
+```bash
+# Performance optimizations
+DOWNLOAD_STRATEGY=parallel    # sequential|parallel
+DOWNLOAD_WORKERS=4           # Number of parallel downloads
+KEEP_DOWNLOADED_FILES=false  # Keep files for re-runs (saves bandwidth)
+```
 
 ## Architecture
 

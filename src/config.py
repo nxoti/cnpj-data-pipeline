@@ -1,8 +1,9 @@
-from dataclasses import dataclass, field
-from typing import Optional
 import os
-import psutil
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional
+
+import psutil
 
 
 def _get_int_env(key: str, default: str) -> int:
@@ -57,12 +58,14 @@ class Config:
     )
 
     # PostgreSQL settings
-    db_host: str = field(default_factory=lambda: os.getenv("DB_HOST", "localhost"))
-    db_port: int = field(default_factory=lambda: _get_int_env("DB_PORT", "5432"))
-    db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "cnpj"))
-    db_user: str = field(default_factory=lambda: os.getenv("DB_USER", "postgres"))
+    db_host: str = field(
+        default_factory=lambda: os.getenv("POSTGRES_HOST", "localhost")
+    )
+    db_port: int = field(default_factory=lambda: _get_int_env("POSTGRES_PORT", "5432"))
+    db_name: str = field(default_factory=lambda: os.getenv("POSTGRES_DB", "cnpj"))
+    db_user: str = field(default_factory=lambda: os.getenv("POSTGRES_USER", "postgres"))
     db_password: str = field(
-        default_factory=lambda: os.getenv("DB_PASSWORD", "postgres")
+        default_factory=lambda: os.getenv("POSTGRES_PASSWORD", "postgres")
     )
 
     # PostgreSQL-specific settings
@@ -106,6 +109,20 @@ class Config:
     )
     encoding_chunk_size: int = field(
         default_factory=lambda: _get_int_env("ENCODING_CHUNK_SIZE", "52428800")
+    )
+
+    # Performance options
+    download_strategy: str = field(
+        default_factory=lambda: os.getenv("DOWNLOAD_STRATEGY", "sequential")
+    )
+    download_workers: int = field(
+        default_factory=lambda: _get_int_env("DOWNLOAD_WORKERS", "4")
+    )
+
+    # File management options
+    keep_downloaded_files: bool = field(
+        default_factory=lambda: os.getenv("KEEP_DOWNLOADED_FILES", "false").lower()
+        == "true"
     )
 
     def __post_init__(self):

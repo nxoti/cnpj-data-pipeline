@@ -1,21 +1,28 @@
 import logging
-import requests
-import zipfile
-import time
 from pathlib import Path
+from typing import Dict, List, Tuple
+
+import requests
 from bs4 import BeautifulSoup
-from typing import List, Dict, Tuple
+
+from .download_strategies import create_download_strategy
 
 logger = logging.getLogger(__name__)
 
 
 class Downloader:
-    """Handles downloading and extracting CNPJ files."""
+    """Handles downloading and extracting CNPJ files with configurable strategies."""
 
     def __init__(self, config):
         self.config = config
         self.temp_path = Path(config.temp_dir)
         self.temp_path.mkdir(exist_ok=True)
+
+        # Initialize download strategy
+        self.strategy = create_download_strategy(config)
+        logger.debug(
+            f"Downloader initialized with {self.strategy.get_strategy_name()} strategy"
+        )
 
     def get_latest_directories(self) -> List[str]:
         """Get all available CNPJ data directories, sorted by date (newest first)."""
@@ -153,87 +160,68 @@ class Downloader:
         return ordered_files, categorization_info
 
     def download_and_extract(self, directory: str, filename: str) -> List[Path]:
-        """Download and extract a file, return list of extracted CSV paths."""
-        url = f"{self.config.base_url}/{directory}/{filename}"
-        zip_path = self.temp_path / filename
+        """
+        Download and extract a single file using the configured strategy.
 
-        # Download with retries
-        for attempt in range(self.config.retry_attempts):
-            try:
-                logger.info(f"Downloading {filename} (attempt {attempt + 1})")
+        This method provides backward compatibility with the existing interface
+        while using the new strategy pattern under the hood.
+        """
+        return self.strategy.download_single_file(directory, filename)
 
-                response = requests.get(
-                    url,
-                    stream=True,
-                    timeout=(self.config.connect_timeout, self.config.read_timeout),
-                )
-                response.raise_for_status()
+    def download_files_batch(self, directory: str, files: List[str]) -> List[Path]:
+        """
+        Download and extract multiple files using the configured strategy.
 
-                with open(zip_path, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
+        This is the new method that leverages the strategy pattern for
+        potentially parallel downloads.
 
-                logger.info(f"Downloaded {filename} ({zip_path.stat().st_size} bytes)")
-                break
+        Args:
+            directory: Directory containing the files
+            files: List of filenames to download
 
-            except Exception as e:
-                logger.warning(f"Download attempt {attempt + 1} failed: {e}")
-                if attempt < self.config.retry_attempts - 1:
-                    time.sleep(self.config.retry_delay)
-                else:
-                    raise
-
-        # Extract files
+        Returns:
+            List of all extracted CSV file paths
+        """
         extracted_files = []
-        try:
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                # Known CNPJ file patterns from processor.py
-                known_patterns = [
-                    "CNAECSV",
-                    "MOTICSV",
-                    "MUNICCSV",
-                    "NATJUCSV",
-                    "PAISCSV",
-                    "QUALSCSV",
-                    "EMPRECSV",
-                    "ESTABELE",
-                    "SOCIOCSV",
-                    "SIMPLESCSV",
-                ]
 
-                for member in zip_ref.namelist():
-                    # Check if member ends with any known CNPJ file pattern
-                    member_upper = member.upper()
-                    is_cnpj_file = any(
-                        member_upper.endswith(pattern) for pattern in known_patterns
+        # Pre-filter files if keeping downloaded files
+        if self.config.keep_downloaded_files:
+            files_to_download = []
+
+            for filename in files:
+                existing_csvs = self.strategy._check_existing_csv_files(filename)
+                if existing_csvs:
+                    logger.debug(
+                        f"Found existing CSV files for {filename}, using cached files"
                     )
+                    extracted_files.extend(existing_csvs)
+                else:
+                    files_to_download.append(filename)
 
-                    if is_cnpj_file:
-                        extract_path = self.temp_path / member
-                        zip_ref.extract(member, self.temp_path)
-                        extracted_files.append(extract_path)
-                        logger.info(f"Extracted CNPJ file: {member}")
-
-            logger.info(f"Extracted {len(extracted_files)} CSV files")
-
-        except Exception as e:
-            logger.error(f"Error extracting {filename}: {e}")
-            raise
-        finally:
-            # Cleanup zip file
-            if zip_path.exists():
-                zip_path.unlink()
+            if files_to_download:
+                logger.info(
+                    f"Need to download {len(files_to_download)} files (found {len(files) - len(files_to_download)} cached)"
+                )
+                # Use the strategy to download only the missing files
+                for csv_file_path in self.strategy.download_files(
+                    directory, files_to_download
+                ):
+                    extracted_files.append(csv_file_path)
+            else:
+                logger.info(
+                    f"All {len(files)} files found in cache, no downloads needed"
+                )
+        else:
+            # Use the strategy to download files (sequential or parallel)
+            for csv_file_path in self.strategy.download_files(directory, files):
+                extracted_files.append(csv_file_path)
 
         return extracted_files
 
     def cleanup(self):
         """Clean up temporary files."""
-        try:
-            for file in self.temp_path.glob("*"):
-                if file.is_file():
-                    file.unlink()
+        self.strategy.cleanup()
 
-            logger.info("Temporary files cleaned up")
-
-        except Exception as e:
-            logger.warning(f"Error during cleanup: {e}")
+    def get_download_stats(self) -> dict:
+        """Get download statistics from the current strategy."""
+        return self.strategy.get_stats()
