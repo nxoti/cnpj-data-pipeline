@@ -130,6 +130,7 @@ O sistema detecta automaticamente a estratégia ideal:
 |----------|---------|-----------|
 | `DOWNLOAD_STRATEGY` | `sequential` | `sequential` ou `parallel` |
 | `DOWNLOAD_WORKERS` | `4` | Número de downloads paralelos |
+| `KEEP_DOWNLOADED_FILES` | `false` | Manter arquivos para re-execuções |
 
 ## Deployment
 
@@ -143,6 +144,9 @@ docker-compose up
 
 # Com downloads paralelos
 DOWNLOAD_STRATEGY=parallel DOWNLOAD_WORKERS=3 docker-compose up
+
+# Manter arquivos para re-execuções (economiza bandwidth)
+KEEP_DOWNLOADED_FILES=true docker-compose up
 
 # Ou sem Docker
 python main.py
@@ -383,6 +387,7 @@ Set `DATABASE_BACKEND`, `PROCESSING_STRATEGY`, and optimization options in `.env
 # Performance optimizations
 DOWNLOAD_STRATEGY=parallel    # sequential|parallel
 DOWNLOAD_WORKERS=4           # Number of parallel downloads
+KEEP_DOWNLOADED_FILES=false  # Keep files for re-runs (saves bandwidth)
 ```
 
 ## Architecture
