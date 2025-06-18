@@ -42,11 +42,11 @@ def get_database_configuration():
         print("\nPostgreSQL Configuration:")
         config = {
             "DATABASE_BACKEND": "postgresql",
-            "DB_HOST": input("Host [localhost]: ").strip() or "localhost",
-            "DB_PORT": input("Port [5432]: ").strip() or "5432",
-            "DB_NAME": input("Database [cnpj]: ").strip() or "cnpj",
-            "DB_USER": input("User [postgres]: ").strip() or "postgres",
-            "DB_PASSWORD": input("Password: ").strip(),
+            "POSTGRES_HOST": input("Host [localhost]: ").strip() or "localhost",
+            "POSTGRES_PORT": input("Port [5432]: ").strip() or "5432",
+            "POSTGRES_NAME": input("Database [cnpj]: ").strip() or "cnpj",
+            "POSTGRES_USER": input("User [postgres]: ").strip() or "postgres",
+            "POSTGRES_PASSWORD": input("Password: ").strip(),
         }
         return config
     else:
