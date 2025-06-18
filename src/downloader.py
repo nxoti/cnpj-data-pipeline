@@ -184,9 +184,37 @@ class Downloader:
         """
         extracted_files = []
 
-        # Use the strategy to download files (sequential or parallel)
-        for csv_file_path in self.strategy.download_files(directory, files):
-            extracted_files.append(csv_file_path)
+        # Pre-filter files if keeping downloaded files
+        if self.config.keep_downloaded_files:
+            files_to_download = []
+
+            for filename in files:
+                existing_csvs = self.strategy._check_existing_csv_files(filename)
+                if existing_csvs:
+                    logger.debug(
+                        f"Found existing CSV files for {filename}, using cached files"
+                    )
+                    extracted_files.extend(existing_csvs)
+                else:
+                    files_to_download.append(filename)
+
+            if files_to_download:
+                logger.info(
+                    f"Need to download {len(files_to_download)} files (found {len(files) - len(files_to_download)} cached)"
+                )
+                # Use the strategy to download only the missing files
+                for csv_file_path in self.strategy.download_files(
+                    directory, files_to_download
+                ):
+                    extracted_files.append(csv_file_path)
+            else:
+                logger.info(
+                    f"All {len(files)} files found in cache, no downloads needed"
+                )
+        else:
+            # Use the strategy to download files (sequential or parallel)
+            for csv_file_path in self.strategy.download_files(directory, files):
+                extracted_files.append(csv_file_path)
 
         return extracted_files
 

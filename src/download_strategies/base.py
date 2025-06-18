@@ -168,45 +168,52 @@ class DownloadStrategy(ABC):
         Returns:
             List of existing CSV file paths, empty if none found
         """
-        # Known CNPJ file patterns that would be extracted from this ZIP
-        known_patterns = [
-            "CNAECSV",
-            "MOTICSV",
-            "MUNICCSV",
-            "NATJUCSV",
-            "PAISCSV",
-            "QUALSCSV",
-            "EMPRECSV",
-            "ESTABELE",
-            "SOCIOCSV",
-            "SIMPLESCSV",
-        ]
+        # Map ZIP filenames to their expected CSV patterns
+        zip_to_csv_patterns = {
+            # Reference tables
+            "CNAES.ZIP": ["CNAECSV"],
+            "MOTIVOS.ZIP": ["MOTICSV"],
+            "MUNICIPIOS.ZIP": ["MUNICCSV"],
+            "NATUREZAS.ZIP": ["NATJUCSV"],
+            "PAISES.ZIP": ["PAISCSV"],
+            "QUALIFICACOES.ZIP": ["QUALSCSV"],
+            # Data files (can have multiple parts)
+            "EMPRESAS": ["EMPRECSV"],
+            "ESTABELECIMENTOS": ["ESTABELE"],
+            "SOCIOS": ["SOCIOCSV"],
+            "SIMPLES": ["SIMPLESCSV"],
+        }
 
         existing_files = []
+        zip_upper = zip_filename.upper()
 
-        # Look for CSV files that could have come from this ZIP
-        for csv_file in self.temp_path.glob("*.csv"):
+        # Determine what CSV patterns this ZIP should contain
+        expected_patterns = []
+        for zip_pattern, csv_patterns in zip_to_csv_patterns.items():
+            if zip_upper.startswith(zip_pattern) or zip_upper == zip_pattern:
+                expected_patterns.extend(csv_patterns)
+                break
+
+        if not expected_patterns:
+            logger.debug(f"No expected patterns found for ZIP: {zip_filename}")
+            return existing_files
+
+        # Look for CSV files matching the expected patterns
+        for csv_file in self.temp_path.glob("*"):
+            # Skip directories and hidden files
+            if not csv_file.is_file() or csv_file.name.startswith("."):
+                continue
+
             csv_name_upper = csv_file.name.upper()
 
-            # Check if this CSV matches any known pattern
-            is_cnpj_file = any(
-                csv_name_upper.endswith(pattern) for pattern in known_patterns
-            )
-
-            if is_cnpj_file:
-                # Simple heuristic: if the CSV file exists and the ZIP filename
-                # contains similar pattern, assume it's from this ZIP
-                zip_base = zip_filename.replace(".zip", "").upper()
-
-                # Check if the ZIP base name is related to this CSV
-                # This is a simple check - could be more sophisticated
-                if any(
-                    pattern in zip_base
-                    for pattern in known_patterns
-                    if pattern in csv_name_upper
-                ):
+            # Check if this CSV matches any expected pattern for this ZIP
+            for pattern in expected_patterns:
+                if csv_name_upper.endswith(pattern):
                     existing_files.append(csv_file)
-                    logger.debug(f"Found existing CSV file: {csv_file.name}")
+                    logger.debug(
+                        f"Found existing CSV file: {csv_file.name} (matches {pattern})"
+                    )
+                    break  # Found match, no need to check other patterns
 
         return existing_files
 
