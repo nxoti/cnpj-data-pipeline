@@ -13,7 +13,7 @@ services:
     image: postgres:15-alpine
     profiles: ["postgres"]  # Only starts when postgres profile is active
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-cnpj_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-cnpj}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
@@ -28,24 +28,24 @@ services:
       retries: 5
 
   # MySQL Database (placeholder - adapter not yet implemented)
-  mysql:
-    image: mysql:8.0
-    profiles: ["mysql"]  # Only starts when mysql profile is active
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-cnpj_dev}
-      MYSQL_USER: ${MYSQL_USER:-cnpj}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cnpj}
-    volumes:
-      - mysql_data:/var/lib/mysql
-      # - ./init-db/mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro  # When available
-    ports:
-      - "3306:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # mysql:
+  #   image: mysql:8.0
+  #   profiles: ["mysql"]  # Only starts when mysql profile is active
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql}
+  #     MYSQL_DATABASE: ${MYSQL_DATABASE:-cnpj_dev}
+  #     MYSQL_USER: ${MYSQL_USER:-cnpj}
+  #     MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cnpj}
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #     # - ./init-db/mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro  # When available
+  #   ports:
+  #     - "3306:3306"
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
   # BigQuery emulator for local development (future)
   # bigquery-emulator:
