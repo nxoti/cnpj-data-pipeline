@@ -198,8 +198,9 @@ O formato ocasionalmente muda:
 
 1. **Processamento Incremental**: Rastreie arquivos já processados
 2. **Download Resumível**: Suporte para retomar downloads interrompidos
-3. **Verificação de Espaço**: 15GB download + 85GB processado = 100GB necessários
-4. **Bandwidth Throttling**: Seja respeitoso com servidores públicos
+3. **Downloads Paralelos**: Configure DOWNLOAD_STRATEGY=parallel para melhor performance
+4. **Verificação de Espaço**: 15GB download + 85GB processado = 100GB necessários
+5. **Bandwidth Throttling**: Seja respeitoso com servidores públicos
 
 ## Conclusão
 
@@ -255,6 +256,7 @@ Total: ~15.5GB compressed
 
 - Track processed files
 - Support resumable downloads
+- Configure parallel downloads for better performance
 - Check disk space (need 100GB)
 - Throttle bandwidth respectfully
 
