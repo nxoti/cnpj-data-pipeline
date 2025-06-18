@@ -148,7 +148,14 @@ def check_requirements():
     print("\nChecking requirements...")
 
     missing_packages = []
-    required_packages = ["requests", "polars", "psycopg2", "psutil"]
+    required_packages = [
+        "requests",
+        "beautifulsoup4",
+        "polars",
+        "psycopg2",
+        "psutil",
+        "tqdm",
+    ]
 
     for package in required_packages:
         try:
