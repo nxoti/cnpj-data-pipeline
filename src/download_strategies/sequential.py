@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Iterator, List
 
+from tqdm import tqdm
+
 from .base import DownloadStrategy
 
 logger = logging.getLogger(__name__)
@@ -53,25 +55,29 @@ class SequentialDownloadStrategy(DownloadStrategy):
         )
 
         try:
-            for i, filename in enumerate(files, 1):
-                logger.debug(f"Processing file {i}/{len(files)}: {filename}")
+            # Create progress bar for overall progress
+            with tqdm(total=len(files), desc="Downloading files", unit="file") as pbar:
+                for i, filename in enumerate(files, 1):
+                    pbar.set_description(f"Downloading {filename}")
 
-                try:
-                    # Download and extract this file
-                    extracted_files = self.download_single_file(directory, filename)
+                    try:
+                        # Download and extract this file
+                        extracted_files = self.download_single_file(directory, filename)
 
-                    # Yield each extracted CSV file
-                    for csv_file in extracted_files:
-                        yield csv_file
+                        # Yield each extracted CSV file
+                        for csv_file in extracted_files:
+                            yield csv_file
 
-                    logger.debug(f"✅ Completed {filename} ({i}/{len(files)})")
+                        logger.debug(f"✅ Completed {filename} ({i}/{len(files)})")
+                        pbar.update(1)
 
-                except Exception as e:
-                    error_msg = f"Failed to process {filename}: {e}"
-                    logger.error(error_msg)
-                    self.stats["errors"].append(error_msg)
-                    # Continue with next file instead of failing completely
-                    continue
+                    except Exception as e:
+                        error_msg = f"Failed to process {filename}: {e}"
+                        logger.error(error_msg)
+                        self.stats["errors"].append(error_msg)
+                        pbar.update(1)
+                        # Continue with next file instead of failing completely
+                        continue
 
         finally:
             self.stats["end_time"] = time.time()

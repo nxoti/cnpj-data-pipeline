@@ -11,6 +11,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Iterator, List
 
+from tqdm import tqdm
+
 from .base import DownloadStrategy
 
 logger = logging.getLogger(__name__)
@@ -56,7 +58,7 @@ class ParallelDownloadStrategy(DownloadStrategy):
             return
 
         self.stats["start_time"] = time.time()
-        logger.debug(
+        logger.info(
             f"Starting parallel download of {len(files)} files from {directory}"
         )
         logger.debug(f"Using {self.max_workers} worker threads")
@@ -70,15 +72,27 @@ class ParallelDownloadStrategy(DownloadStrategy):
                 logger.debug(
                     f"Processing {len(reference_files)} reference files sequentially"
                 )
-                for filename in reference_files:
-                    try:
-                        extracted_files = self.download_single_file(directory, filename)
-                        for csv_file in extracted_files:
-                            yield csv_file
-                    except Exception as e:
-                        error_msg = f"Failed to process reference file {filename}: {e}"
-                        logger.error(error_msg)
-                        self.stats["errors"].append(error_msg)
+                with tqdm(
+                    total=len(reference_files),
+                    desc="Downloading reference files",
+                    unit="file",
+                ) as pbar:
+                    for filename in reference_files:
+                        pbar.set_description(f"Downloading {filename}")
+                        try:
+                            extracted_files = self.download_single_file(
+                                directory, filename
+                            )
+                            for csv_file in extracted_files:
+                                yield csv_file
+                            pbar.update(1)
+                        except Exception as e:
+                            error_msg = (
+                                f"Failed to process reference file {filename}: {e}"
+                            )
+                            logger.error(error_msg)
+                            self.stats["errors"].append(error_msg)
+                            pbar.update(1)
 
             # Process data files in parallel
             if data_files:
@@ -135,6 +149,11 @@ class ParallelDownloadStrategy(DownloadStrategy):
 
         # Use ThreadPoolExecutor for parallel downloads
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            # Log which files will be downloaded in parallel
+            logger.info(
+                f"Starting parallel download of {len(files)} files: {', '.join(files)}"
+            )
+
             # Submit all download tasks
             future_to_filename = {
                 executor.submit(
@@ -143,25 +162,33 @@ class ParallelDownloadStrategy(DownloadStrategy):
                 for filename in files
             }
 
-            # Process completed downloads as they finish
-            for future in as_completed(future_to_filename):
-                filename = future_to_filename[future]
+            # Create progress bar for parallel downloads
+            with tqdm(
+                total=len(files), desc="Downloading data files (parallel)", unit="file"
+            ) as pbar:
+                # Process completed downloads as they finish
+                for future in as_completed(future_to_filename):
+                    filename = future_to_filename[future]
 
-                try:
-                    extracted_files = future.result()
+                    try:
+                        extracted_files = future.result()
 
-                    # Yield each extracted CSV file
-                    for csv_file in extracted_files:
-                        yield csv_file
+                        # Yield each extracted CSV file
+                        for csv_file in extracted_files:
+                            yield csv_file
 
-                    logger.debug(f"✅ Completed parallel download: {filename}")
+                        logger.debug(f"✅ Completed parallel download: {filename}")
+                        pbar.set_description(f"Completed {filename}")
+                        pbar.update(1)
 
-                except Exception as e:
-                    error_msg = f"Failed to process {filename} in parallel: {e}"
-                    logger.error(error_msg)
-                    self.stats["errors"].append(error_msg)
-                    # Continue with other files
-                    continue
+                    except Exception as e:
+                        error_msg = f"Failed to process {filename} in parallel: {e}"
+                        logger.error(error_msg)
+                        self.stats["errors"].append(error_msg)
+                        pbar.set_description(f"Failed {filename}")
+                        pbar.update(1)
+                        # Continue with other files
+                        continue
 
     def get_strategy_name(self) -> str:
         """Get the name of this strategy."""

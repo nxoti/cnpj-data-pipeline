@@ -9,6 +9,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Iterator, List
 
+from tqdm import tqdm
+
 logger = logging.getLogger(__name__)
 
 
@@ -94,11 +96,23 @@ class DownloadStrategy(ABC):
                 )
                 response.raise_for_status()
 
-                bytes_downloaded = 0
-                with open(zip_path, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                        bytes_downloaded += len(chunk)
+                # Get content length for progress bar
+                total_size = int(response.headers.get("content-length", 0))
+
+                # Create progress bar for this file download
+                with tqdm(
+                    total=total_size,
+                    unit="B",
+                    unit_scale=True,
+                    desc=f"Downloading {filename}",
+                    leave=False,  # Don't leave progress bar after completion
+                ) as pbar:
+                    bytes_downloaded = 0
+                    with open(zip_path, "wb") as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                            bytes_downloaded += len(chunk)
+                            pbar.update(len(chunk))
 
                 logger.debug(f"Downloaded {filename} ({bytes_downloaded} bytes)")
                 self.stats["files_downloaded"] += 1
