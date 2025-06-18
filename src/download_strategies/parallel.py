@@ -56,7 +56,7 @@ class ParallelDownloadStrategy(DownloadStrategy):
             return
 
         self.stats["start_time"] = time.time()
-        logger.info(
+        logger.debug(
             f"Starting parallel download of {len(files)} files from {directory}"
         )
         logger.debug(f"Using {self.max_workers} worker threads")
